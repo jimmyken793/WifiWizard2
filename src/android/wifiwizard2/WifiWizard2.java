@@ -466,16 +466,28 @@ public class WifiWizard2 extends CordovaPlugin {
 
       if(API_VERSION >= 29) {
         networkCallback = new ConnectivityManager.NetworkCallback() {
+          private boolean firstCall = false;
           @Override
           public void onAvailable(Network network) {
-            callbackContext.success(0);
-            connectivityManager.bindProcessToNetwork(network);
+            Log.d(TAG, "Wifi onAvailable " + newSSID);
+            if(connectivityManager.bindProcessToNetwork(network)){
+              Log.d(TAG, "bindProcessToNetwork TRUE networkCallback " + network.getClass().getName());
+            } else {
+              Log.d(TAG, "bindProcessToNetwork FALSE networkCallback " + network.getClass().getName());
+            }
+            if(firstCall){
+              firstCall = true;
+              callbackContext.success(0);
+            }
           }
           @Override
           public void onUnavailable () {
-            callbackContext.error("ERROR_UNAVALIABLE");
+            Log.d(TAG, "Wifi onUnavailable" + newSSID);
+            if(firstCall){
+              firstCall = true;
+              callbackContext.error("ERROR_UNAVALIABLE");
+            }
           }
-
         };
 
         WifiNetworkSpecifier.Builder builder = new WifiNetworkSpecifier.Builder().setSsid(newSSID);
@@ -487,9 +499,10 @@ public class WifiWizard2 extends CordovaPlugin {
 
         NetworkRequest networkRequest = new NetworkRequest.Builder()
           .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
+          .removeCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
           .setNetworkSpecifier(wifiNetworkSpecifier).build();
 
-        connectivityManager.requestNetwork(networkRequest, this.networkCallback);
+        connectivityManager.requestNetwork(networkRequest, networkCallback, 60 * 3 * 1000);
       } else {
         // After processing authentication types, add or update network
         if(wifi.networkId == -1) { // -1 means SSID configuration does not exist yet
